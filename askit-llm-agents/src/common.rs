@@ -7,6 +7,86 @@ use agent_stream_kit::{
 
 use crate::message::Message;
 
+// Assistant Message Agent
+pub struct AssistantMessageAgent {
+    data: AsAgentData,
+}
+
+#[async_trait]
+impl AsAgent for AssistantMessageAgent {
+    fn new(
+        askit: ASKit,
+        id: String,
+        def_name: String,
+        config: Option<AgentConfigs>,
+    ) -> Result<Self, AgentError> {
+        Ok(Self {
+            data: AsAgentData::new(askit, id, def_name, config),
+        })
+    }
+
+    fn data(&self) -> &AsAgentData {
+        &self.data
+    }
+
+    fn mut_data(&mut self) -> &mut AsAgentData {
+        &mut self.data
+    }
+
+    async fn process(
+        &mut self,
+        ctx: AgentContext,
+        _pin: String,
+        data: AgentData,
+    ) -> Result<(), AgentError> {
+        let value = self.configs()?.get_string(CONFIG_MESSAGE)?;
+        let message = Message::assistant(value);
+        let messages = add_message(data, message);
+        self.try_output(ctx, PORT_MESSAGES, messages)?;
+        Ok(())
+    }
+}
+
+// System Message Agent
+pub struct SystemMessageAgent {
+    data: AsAgentData,
+}
+
+#[async_trait]
+impl AsAgent for SystemMessageAgent {
+    fn new(
+        askit: ASKit,
+        id: String,
+        def_name: String,
+        config: Option<AgentConfigs>,
+    ) -> Result<Self, AgentError> {
+        Ok(Self {
+            data: AsAgentData::new(askit, id, def_name, config),
+        })
+    }
+
+    fn data(&self) -> &AsAgentData {
+        &self.data
+    }
+
+    fn mut_data(&mut self) -> &mut AsAgentData {
+        &mut self.data
+    }
+
+    async fn process(
+        &mut self,
+        ctx: AgentContext,
+        _pin: String,
+        data: AgentData,
+    ) -> Result<(), AgentError> {
+        let value = self.configs()?.get_string(CONFIG_MESSAGE)?;
+        let message = Message::system(value);
+        let messages = add_message(data, message);
+        self.try_output(ctx, PORT_MESSAGES, messages)?;
+        Ok(())
+    }
+}
+
 // User Message Agent
 pub struct UserMessageAgent {
     data: AsAgentData,
@@ -71,6 +151,34 @@ static PORT_MESSAGES: &str = "messages";
 static CONFIG_MESSAGE: &str = "message";
 
 pub fn register_agents(askit: &ASKit) {
+    askit.register_agent(
+        AgentDefinition::new(
+            AGENT_KIND,
+            "llm_assistant_message",
+            Some(new_agent_boxed::<AssistantMessageAgent>),
+        )
+        // .use_native_thread()
+        .with_title("Assistant Message")
+        .with_category(CATEGORY)
+        .with_inputs(vec![PORT_MESSAGES])
+        .with_outputs(vec![PORT_MESSAGES])
+        .with_default_configs(vec![(CONFIG_MESSAGE, AgentConfigEntry::new("", "string"))]),
+    );
+
+    askit.register_agent(
+        AgentDefinition::new(
+            AGENT_KIND,
+            "llm_system_message",
+            Some(new_agent_boxed::<SystemMessageAgent>),
+        )
+        // .use_native_thread()
+        .with_title("System Message")
+        .with_category(CATEGORY)
+        .with_inputs(vec![PORT_MESSAGES])
+        .with_outputs(vec![PORT_MESSAGES])
+        .with_default_configs(vec![(CONFIG_MESSAGE, AgentConfigEntry::new("", "string"))]),
+    );
+
     askit.register_agent(
         AgentDefinition::new(
             AGENT_KIND,
