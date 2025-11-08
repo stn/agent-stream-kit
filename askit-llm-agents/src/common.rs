@@ -40,34 +40,27 @@ impl AsAgent for UserMessageAgent {
         data: AgentData,
     ) -> Result<(), AgentError> {
         let value = self.configs()?.get_string(CONFIG_MESSAGE)?;
-        let config_message = Message::user(value);
-
-        if data.is_array() {
-            let mut arr = data.as_array().unwrap_or(&vec![]).to_owned();
-            arr.push(config_message.into());
-            self.try_output(ctx, PORT_MESSAGES, AgentData::array("message", arr))?;
-            return Ok(());
-        }
-
-        let value = data.as_str().unwrap_or("");
-        if !value.is_empty() {
-            let in_message = Message::user(value.to_string());
-            self.try_output(
-                ctx,
-                PORT_MESSAGES,
-                AgentData::array("message", vec![config_message.into(), in_message.into()]),
-            )?;
-            return Ok(());
-        }
-
-        self.try_output(
-            ctx,
-            PORT_MESSAGES,
-            AgentData::array("message", vec![config_message.into()]),
-        )?;
-
+        let message = Message::user(value);
+        let messages = add_message(data, message);
+        self.try_output(ctx, PORT_MESSAGES, messages)?;
         Ok(())
     }
+}
+
+fn add_message(data: AgentData, message: Message) -> AgentData {
+    if data.is_array() {
+        let mut arr = data.as_array().unwrap_or(&vec![]).to_owned();
+        arr.push(message.into());
+        return AgentData::array("message", arr);
+    }
+
+    let value = data.as_str().unwrap_or("");
+    if !value.is_empty() {
+        let in_message = Message::user(value.to_string());
+        return AgentData::array("message", vec![message.into(), in_message.into()]);
+    }
+
+    AgentData::array("message", vec![message.into()])
 }
 
 static AGENT_KIND: &str = "agent";
